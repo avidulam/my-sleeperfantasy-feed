@@ -104,10 +104,10 @@
   <div class="bg-panel2 border-b border-line overflow-hidden py-1.5">
     <div class="ticker-track text-[11px] tracking-wide text-muted font-medium">
       <span class="mx-6">● LIVE BREAKING NEWS — LAST 48 HOURS ONLY</span>
-      <span class="mx-6">● ONLY SHOWING PLAYERS ON YOUR ROSTERS</span>
+      <span class="mx-6">● SHOWING ROSTERED AND TOP LEAGUE HEADLINES</span>
       <span class="mx-6">● DEEP-LINK STRAIGHT TO YOUR ROSTER TO ACT</span>
       <span class="mx-6">● LIVE BREAKING NEWS — LAST 48 HOURS ONLY</span>
-      <span class="mx-6">● ONLY SHOWING PLAYERS ON YOUR ROSTERS</span>
+      <span class="mx-6">● SHOWING ROSTERED AND TOP LEAGUE HEADLINES</span>
       <span class="mx-6">● DEEP-LINK STRAIGHT TO YOUR ROSTER TO ACT</span>
     </div>
   </div>
@@ -167,13 +167,16 @@
       <aside class="lg:col-span-1">
         <div class="lg:sticky lg:top-6">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="font-display font-700 text-xl tracking-tight text-white">My Leagues</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="font-display font-700 text-xl tracking-tight text-white">My Matchups</h2>
+              <span id="weekBadge" class="text-[10px] font-semibold text-lime bg-lime/10 border border-lime/30 rounded px-1.5 py-0.5 hidden">Week 1</span>
+            </div>
             <span id="leagueCount" class="text-[11px] text-muted bg-panel2 border border-line rounded-full px-2 py-0.5">0</span>
           </div>
 
-          <div id="leaguesList" class="flex flex-col gap-2">
+          <div id="leaguesList" class="flex flex-col gap-3">
             <div class="border border-dashed border-line rounded-lg p-5 text-center text-sm text-muted">
-              Log in with your Sleeper username to load your leagues.
+              Log in with your Sleeper username to load your matchup scores.
             </div>
           </div>
         </div>
@@ -181,9 +184,9 @@
 
       <!-- RIGHT: Main View Container -->
       <section class="lg:col-span-3">
-        <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
           
-          <!-- Styled Dropdown Container -->
+          <!-- View Dropdown Container -->
           <div class="flex items-center gap-3">
             <span class="w-2.5 h-2.5 rounded-full bg-lime pulse-dot flex-shrink-0"></span>
             
@@ -191,9 +194,9 @@
               <select id="wireViewSelect"
                 class="appearance-none bg-panel2 border-2 border-line hover:border-lime/50 focus:border-lime rounded-lg pl-4 pr-10 py-2 font-display font-700 text-xl lg:text-2xl tracking-tight text-white cursor-pointer transition shadow-sm">
                 <option value="playerNews" class="bg-panel text-slate-100 py-1" selected>Player News & Updates</option>
+                <option value="allHeadlines" class="bg-panel text-slate-100 py-1">All Player Headlines</option>
                 <option value="rosterStatus" class="bg-panel text-slate-100 py-1">Roster Status & Injuries</option>
               </select>
-              <!-- Explicit Dropdown Arrow Icon -->
               <div class="pointer-events-none absolute right-3 flex items-center text-lime">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
@@ -202,7 +205,17 @@
             </div>
           </div>
 
-          <span id="wireCount" class="text-[11px] font-medium text-muted bg-panel2 border border-line rounded-full px-3 py-1">0 updates</span>
+          <!-- Search Bar & Count Badge -->
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-64">
+              <input id="searchInput" type="text" placeholder="Search player, team, keyword..."
+                class="w-full bg-panel2 border border-line rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder:text-muted/60 focus:border-lime" />
+              <svg class="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <span id="wireCount" class="text-[11px] font-medium text-muted bg-panel2 border border-line rounded-full px-3 py-1 whitespace-nowrap">0 updates</span>
+          </div>
         </div>
 
         <!-- Roster Status Grid -->
@@ -216,6 +229,13 @@
         <div id="playerNewsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
             Log in to fetch live fantasy player news and updates from the last 48 hours for your rostered players.
+          </div>
+        </div>
+
+        <!-- All Headlines Grid -->
+        <div id="allHeadlinesGrid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
+            Fetching ESPN Top Headlines...
           </div>
         </div>
 
@@ -262,26 +282,33 @@
   const state = {
     playersDict: null,
     userId: null,
+    currentWeek: 1,
     leagues: [],
     ownership: new Map(),             // player_id -> Map(league_id -> league_name)
     clearedRosterPlayers: new Set(),  // player IDs cleared in Roster Status view
     clearedNewsCards: new Set(),      // news index/keys cleared in Player News view
-    view: "playerNews",               // "playerNews" | "rosterStatus"
+    clearedHeadlineCards: new Set(),  // news index/keys cleared in All Headlines view
+    view: "playerNews",               // "playerNews" | "allHeadlines" | "rosterStatus"
+    searchQuery: "",
     playerNewsList: [],
+    allHeadlinesList: [],
   };
 
   const el = {
     loginBtn: document.getElementById("loginBtn"),
     usernameInput: document.getElementById("usernameInput"),
     seasonSelect: document.getElementById("seasonSelect"),
+    searchInput: document.getElementById("searchInput"),
     statusBar: document.getElementById("statusBar"),
     statusText: document.getElementById("statusText"),
     statusSpinner: document.getElementById("statusSpinner"),
     leaguesList: document.getElementById("leaguesList"),
     leagueCount: document.getElementById("leagueCount"),
+    weekBadge: document.getElementById("weekBadge"),
     wireViewSelect: document.getElementById("wireViewSelect"),
     rosterStatusGrid: document.getElementById("rosterStatusGrid"),
     playerNewsGrid: document.getElementById("playerNewsGrid"),
+    allHeadlinesGrid: document.getElementById("allHeadlinesGrid"),
     wireCount: document.getElementById("wireCount"),
     lastSynced: document.getElementById("lastSynced"),
   };
@@ -302,7 +329,6 @@
     el.loginBtn.textContent = busy ? "Working…" : "Login";
   }
 
-  // Deep-link generator supporting native app URI scheme for iOS/Android PWAs
   function rosterDeepLink(leagueId) {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
@@ -313,6 +339,11 @@
 
   function headshotUrl(playerId) {
     return "https://sleepercdn.com/content/nfl/players/thumb/" + playerId + ".jpg";
+  }
+
+  function avatarUrl(avatarId) {
+    if (!avatarId) return FALLBACK_AVATAR;
+    return "https://sleepercdn.com/avatars/thumbs/" + avatarId;
   }
 
   async function fetchJSON(url) {
@@ -371,6 +402,15 @@
     } catch (e) { }
   }
 
+  async function getNflState() {
+    try {
+      const nflState = await fetchJSON(API_BASE + "/state/nfl");
+      state.currentWeek = nflState.week || 1;
+    } catch (e) {
+      state.currentWeek = 1;
+    }
+  }
+
   async function loadUser(username) {
     const user = await fetchJSON(API_BASE + "/user/" + encodeURIComponent(username));
     if (!user || !user.user_id) throw new Error("No Sleeper user found for that username.");
@@ -382,27 +422,73 @@
     return Array.isArray(leagues) ? leagues : [];
   }
 
-  async function loadOwnershipAcrossLeagues(leagues, userId) {
+  // Count players yet to play based on starters/players list and points scored
+  function countYetToPlay(matchup) {
+    if (!matchup) return 0;
+    const starters = matchup.starters || matchup.players || [];
+    const pointsMap = matchup.players_points || {};
+    
+    let yetToPlay = 0;
+    starters.forEach((pid) => {
+      // If player has 0 points or no entry in points map, consider them yet to play
+      if (!pointsMap[pid] || pointsMap[pid] === 0) {
+        yetToPlay++;
+      }
+    });
+
+    return yetToPlay;
+  }
+
+  async function loadOwnershipAndMatchupsAcrossLeagues(leagues, userId, week) {
     const ownership = new Map();
 
     await Promise.all(
       leagues.map(async (league) => {
         try {
-          const rosters = await fetchJSON(API_BASE + "/league/" + league.league_id + "/rosters");
+          const [rosters, users, matchups] = await Promise.all([
+            fetchJSON(API_BASE + "/league/" + league.league_id + "/rosters"),
+            fetchJSON(API_BASE + "/league/" + league.league_id + "/users"),
+            fetchJSON(API_BASE + "/league/" + league.league_id + "/matchups/" + week).catch(() => [])
+          ]);
+
+          const userMap = new Map((users || []).map(u => [u.user_id, u]));
           const myRoster = (rosters || []).find((r) => {
             if (r.owner_id === userId) return true;
             if (Array.isArray(r.co_owners) && r.co_owners.includes(userId)) return true;
             return false;
           });
 
-          if (!myRoster || !Array.isArray(myRoster.players)) return;
+          if (!myRoster) return;
 
-          myRoster.players.forEach((playerId) => {
-            if (!ownership.has(playerId)) ownership.set(playerId, new Map());
-            ownership.get(playerId).set(league.league_id, league.name || "Unnamed League");
-          });
+          if (Array.isArray(myRoster.players)) {
+            myRoster.players.forEach((playerId) => {
+              if (!ownership.has(playerId)) ownership.set(playerId, new Map());
+              ownership.get(playerId).set(league.league_id, league.name || "Unnamed League");
+            });
+          }
+
+          // Build Matchup info
+          const myMatchup = matchups.find(m => m.roster_id === myRoster.roster_id);
+          if (myMatchup) {
+            const oppMatchup = matchups.find(m => m.matchup_id === myMatchup.matchup_id && m.roster_id !== myRoster.roster_id);
+            const oppRoster = oppMatchup ? rosters.find(r => r.roster_id === oppMatchup.roster_id) : null;
+            const oppUser = oppRoster ? userMap.get(oppRoster.owner_id) : null;
+
+            const myPts = myMatchup.points || 0;
+            const oppPts = oppMatchup ? (oppMatchup.points || 0) : 0;
+
+            league.matchupData = {
+              myPoints: myPts,
+              oppPoints: oppPts,
+              myYTP: countYetToPlay(myMatchup),
+              oppYTP: countYetToPlay(oppMatchup),
+              oppName: oppUser ? (oppUser.metadata?.team_name || oppUser.display_name) : (oppRoster ? "Team " + oppRoster.roster_id : "BYE"),
+              oppAvatar: oppUser ? oppUser.avatar : null,
+              myAvatar: userMap.get(userId)?.avatar
+            };
+          }
         } catch (e) {
-          console.warn("Failed to load rosters for league", league.league_id, e);
+          console.warn("Failed to load details for league", league.league_id, e);
         }
       })
     );
@@ -410,7 +496,7 @@
     return ownership;
   }
 
-  // Fetch live Player News cards (Strictly last 48 hrs)
+  // Fetch live Player News & Headlines (Last 48 hrs)
   async function loadPlayerNews(ownership) {
     try {
       const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50");
@@ -418,22 +504,35 @@
       const articles = data.articles || [];
 
       const playerMap = new Map();
-      ownership.forEach((_val, pid) => {
-        const info = playerLabel(pid);
-        if (info.name) {
-          playerMap.set(info.name.toLowerCase(), { id: pid, info });
-        }
-      });
+      if (ownership) {
+        ownership.forEach((_val, pid) => {
+          const info = playerLabel(pid);
+          if (info.name) {
+            playerMap.set(info.name.toLowerCase(), { id: pid, info });
+          }
+        });
+      }
 
       const now = Date.now();
       const matchedNews = [];
+      const allNews = [];
 
       articles.forEach((art, idx) => {
-        // Filter out news older than 48 hours
         const pubTime = new Date(art.published).getTime();
         if (isNaN(pubTime) || (now - pubTime) > NEWS_MAX_AGE_MS) {
           return;
         }
+
+        const headlineItem = {
+          cardId: "headline-" + idx,
+          title: art.headline,
+          summary: art.description || art.story || "No details provided.",
+          source: art.byline || "ESPN Fantasy",
+          published: art.published,
+          link: art.links?.web?.href || "#",
+          images: art.images || []
+        };
+        allNews.push(headlineItem);
 
         const textToSearch = ((art.headline || "") + " " + (art.description || "")).toLowerCase();
         
@@ -458,13 +557,15 @@
       });
 
       state.playerNewsList = matchedNews;
+      state.allHeadlinesList = allNews;
     } catch (e) {
       console.warn("Could not load player news:", e);
       state.playerNewsList = [];
+      state.allHeadlinesList = [];
     }
   }
 
-  // Handler for clearing a player card in Roster Status View
+  // Clear Handlers
   window.clearRosterPlayerCard = function(playerId) {
     state.clearedRosterPlayers.add(playerId);
     const cardEl = document.getElementById("roster-card-" + playerId);
@@ -477,7 +578,6 @@
     }
   };
 
-  // Handler for clearing a card in Player News View
   window.clearNewsCard = function(cardId) {
     state.clearedNewsCards.add(cardId);
     const cardEl = document.getElementById(cardId);
@@ -490,13 +590,24 @@
     }
   };
 
-  // ---------------------------------------------------------------------
+  window.clearHeadlineCard = function(cardId) {
+    state.clearedHeadlineCards.add(cardId);
+    const cardEl = document.getElementById(cardId);
+    if (cardEl) {
+      cardEl.classList.add("card-exit");
+      setTimeout(() => {
+        cardEl.remove();
+        renderAllHeadlinesTab();
+      }, 250);
+    }
+  };
+
   // Render: Roster Status View
-  // ---------------------------------------------------------------------
   function renderRosterStatusTab() {
+    const q = state.searchQuery.toLowerCase();
     const ownedPlayerIds = Array.from(state.ownership.keys()).filter((pid) => !state.clearedRosterPlayers.has(pid));
 
-    const injuredPlayers = ownedPlayerIds
+    let injuredPlayers = ownedPlayerIds
       .map((pid) => {
         const info = playerLabel(pid);
         const statusKey = (info.injuryStatus || "ACTIVE").toUpperCase();
@@ -512,14 +623,23 @@
       })
       .filter((item) => item.statusKey !== "ACTIVE" && item.statusKey !== "HEALTHY" && item.statusKey !== "—");
 
+    if (q) {
+      injuredPlayers = injuredPlayers.filter((item) => 
+        item.info.name.toLowerCase().includes(q) ||
+        item.info.team.toLowerCase().includes(q) ||
+        item.info.position.toLowerCase().includes(q) ||
+        item.info.injuryStatus.toLowerCase().includes(q)
+      );
+    }
+
     state.lastRosterStatusCount = injuredPlayers.length + (injuredPlayers.length === 1 ? " update" : " updates");
     if (state.view === "rosterStatus") el.wireCount.textContent = state.lastRosterStatusCount;
 
     if (!injuredPlayers.length) {
       el.rosterStatusGrid.innerHTML =
         '<div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">' +
-        "No active injury designations or status updates on your rosters." +
-        "</div>";
+        (q ? 'No injured players found matching your search term.' : 'No active injury designations or status updates on your rosters.') +
+        '</div>';
       return;
     }
 
@@ -582,18 +702,28 @@
       .join("");
   }
 
-  // ---------------------------------------------------------------------
   // Render: Player News View
-  // ---------------------------------------------------------------------
   function renderPlayerNewsTab() {
-    const list = state.playerNewsList.filter((item) => !state.clearedNewsCards.has(item.cardId));
+    const q = state.searchQuery.toLowerCase();
+    let list = state.playerNewsList.filter((item) => !state.clearedNewsCards.has(item.cardId));
+
+    if (q) {
+      list = list.filter((item) => 
+        item.playerInfo.name.toLowerCase().includes(q) ||
+        item.playerInfo.team.toLowerCase().includes(q) ||
+        item.playerInfo.position.toLowerCase().includes(q) ||
+        item.title.toLowerCase().includes(q) ||
+        item.summary.toLowerCase().includes(q)
+      );
+    }
+
     state.lastPlayerNewsCount = list.length + (list.length === 1 ? " update" : " updates");
     if (state.view === "playerNews") el.wireCount.textContent = state.lastPlayerNewsCount;
 
     if (!list.length) {
       el.playerNewsGrid.innerHTML = `
         <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
-          No breaking news found in the last 48 hours for your rostered players.
+          ${q ? 'No player news found matching your search term.' : 'No breaking news found in the last 48 hours for your rostered players.'}
         </div>`;
       return;
     }
@@ -663,33 +793,149 @@
       .join("");
   }
 
+  // Render: All Player Headlines View
+  function renderAllHeadlinesTab() {
+    const q = state.searchQuery.toLowerCase();
+    let list = state.allHeadlinesList.filter((item) => !state.clearedHeadlineCards.has(item.cardId));
+
+    if (q) {
+      list = list.filter((item) => 
+        item.title.toLowerCase().includes(q) ||
+        item.summary.toLowerCase().includes(q) ||
+        item.source.toLowerCase().includes(q)
+      );
+    }
+
+    state.lastAllHeadlinesCount = list.length + (list.length === 1 ? " story" : " stories");
+    if (state.view === "allHeadlines") el.wireCount.textContent = state.lastAllHeadlinesCount;
+
+    if (!list.length) {
+      el.allHeadlinesGrid.innerHTML = `
+        <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
+          ${q ? 'No headlines found matching your search term.' : 'No ESPN player headlines found in the last 48 hours.'}
+        </div>`;
+      return;
+    }
+
+    el.allHeadlinesGrid.innerHTML = list
+      .map((item, idx) => {
+        const imgUrl = item.images && item.images.length ? item.images[0].url : null;
+
+        return `
+        <article id="${item.cardId}" class="bg-panel border border-line rounded-lg p-5 flex flex-col justify-between gap-4 hover:shadow-glow hover:border-lime/30 transition-all card-enter" style="animation-delay:${Math.min(idx * 30, 300)}ms">
+          <div>
+            <div class="flex items-center justify-between gap-3 border-b border-line pb-3 mb-3">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-lime bg-lime/10 border border-lime/30 px-2 py-0.5 rounded">
+                ESPN Top Headline
+              </span>
+
+              <div class="flex items-center gap-3">
+                <span class="text-[11px] text-muted whitespace-nowrap">${timeAgo(item.published)}</span>
+                <button onclick="clearHeadlineCard('${item.cardId}')"
+                  class="text-[10px] uppercase font-semibold text-muted hover:text-rose border border-line hover:border-rose/40 rounded px-1.5 py-0.5 transition">
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="" class="w-full h-36 object-cover rounded-md mb-3 border border-line bg-panel2" onerror="this.remove();" />` : ''}
+
+            <div>
+              <h4 class="font-display font-800 text-lg leading-snug text-white mb-2">${escapeHtml(item.title)}</h4>
+              <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(item.summary)}</p>
+            </div>
+          </div>
+
+          <div class="border-t border-line pt-3 mt-2 flex items-center justify-between text-[11px] text-muted">
+            <span>via ${escapeHtml(item.source)}</span>
+            <a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="text-lime hover:underline font-medium">Read Full Story ↗</a>
+          </div>
+        </article>`;
+      })
+      .join("");
+  }
+
+  function renderCurrentView() {
+    if (state.view === "rosterStatus") {
+      renderRosterStatusTab();
+    } else if (state.view === "playerNews") {
+      renderPlayerNewsTab();
+    } else if (state.view === "allHeadlines") {
+      renderAllHeadlinesTab();
+    }
+  }
+
   function switchView(view) {
     state.view = view;
     el.rosterStatusGrid.classList.toggle("hidden", view !== "rosterStatus");
     el.playerNewsGrid.classList.toggle("hidden", view !== "playerNews");
+    el.allHeadlinesGrid.classList.toggle("hidden", view !== "allHeadlines");
 
-    if (view === "rosterStatus") {
-      renderRosterStatusTab();
-    } else if (view === "playerNews") {
-      renderPlayerNewsTab();
+    if (view === "allHeadlines" && !state.allHeadlinesList.length) {
+      loadPlayerNews(state.ownership).then(() => renderAllHeadlinesTab());
+    } else {
+      renderCurrentView();
     }
   }
 
+  // Render My Matchups / Leagues with Scores and Yet to Play Indicators
   function renderLeagues(leagues) {
     el.leagueCount.textContent = String(leagues.length);
+    el.weekBadge.textContent = "Week " + state.currentWeek;
+    el.weekBadge.classList.remove("hidden");
+
     if (!leagues.length) {
       el.leaguesList.innerHTML = '<div class="border border-dashed border-line rounded-lg p-5 text-center text-sm text-muted">No active leagues found.</div>';
       return;
     }
+
     el.leaguesList.innerHTML = leagues
-      .map((league) => `
-        <div class="bg-panel border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2 card-enter">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-slate-100 truncate">${escapeHtml(league.name || "Unnamed League")}</p>
-            <p class="text-[11px] text-muted">${escapeHtml(league.status || "")}</p>
+      .map((league) => {
+        const m = league.matchupData || {
+          myPoints: 0,
+          oppPoints: 0,
+          myYTP: 0,
+          oppYTP: 0,
+          oppName: "Opponent"
+        };
+
+        const isWinning = m.myPoints >= m.oppPoints;
+
+        return `
+        <a href="${rosterDeepLink(league.league_id)}" target="_blank" rel="noopener noreferrer" 
+           class="block bg-panel border border-line rounded-lg p-3.5 hover:border-lime/40 hover:shadow-glow transition-all group card-enter">
+          
+          <!-- League Title Bar -->
+          <div class="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-line/60">
+            <span class="text-xs font-semibold text-slate-200 truncate group-hover:text-lime transition-colors">${escapeHtml(league.name || "Unnamed League")}</span>
+            <span class="text-[10px] text-sky font-medium flex-shrink-0">Matchup ↗</span>
           </div>
-          <a href="${rosterDeepLink(league.league_id)}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap">Roster ↗</a>
-        </div>`)
+
+          <!-- Matchup Grid -->
+          <div class="space-y-2.5">
+            <!-- User Team Row -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 min-w-0">
+                <img src="${avatarUrl(m.myAvatar)}" class="w-6 h-6 rounded-full border border-line object-cover bg-panel2 flex-shrink-0" onerror="this.src='${FALLBACK_AVATAR}';" />
+                <span class="text-xs font-medium text-slate-100 truncate">You</span>
+                <span class="text-[10px] text-muted bg-panel2 border border-line rounded px-1.5 py-0.2 whitespace-nowrap">${m.myYTP} YTP</span>
+              </div>
+              <span class="font-display font-800 text-base ${isWinning ? 'text-lime' : 'text-slate-300'}">${m.myPoints.toFixed(2)}</span>
+            </div>
+
+            <!-- Opponent Team Row -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 min-w-0">
+                <img src="${avatarUrl(m.oppAvatar)}" class="w-6 h-6 rounded-full border border-line object-cover bg-panel2 flex-shrink-0" onerror="this.src='${FALLBACK_AVATAR}';" />
+                <span class="text-xs font-medium text-muted truncate">${escapeHtml(m.oppName)}</span>
+                <span class="text-[10px] text-muted bg-panel2 border border-line rounded px-1.5 py-0.2 whitespace-nowrap">${m.oppYTP} YTP</span>
+              </div>
+              <span class="font-display font-800 text-base ${!isWinning ? 'text-rose' : 'text-muted'}">${m.oppPoints.toFixed(2)}</span>
+            </div>
+          </div>
+
+        </a>`;
+      })
       .join("");
   }
 
@@ -712,11 +958,16 @@
     setLoginBusy(true);
     state.clearedRosterPlayers.clear();
     state.clearedNewsCards.clear();
+    state.clearedHeadlineCards.clear();
     el.leaguesList.innerHTML = "";
     el.rosterStatusGrid.innerHTML = "";
     el.playerNewsGrid.innerHTML = "";
+    el.allHeadlinesGrid.innerHTML = "";
 
     try {
+      setStatus("Checking current NFL week…");
+      await getNflState();
+
       setStatus("Loading NFL player dictionary…");
       await loadPlayersDict();
 
@@ -727,23 +978,24 @@
       setStatus("Fetching leagues for " + season + "…");
       const leagues = await loadLeagues(user.user_id, season);
       state.leagues = leagues;
-      renderLeagues(leagues);
 
       if (!leagues.length) {
+        renderLeagues([]);
         setStatus("No leagues found for this username / season.", true);
         hideStatusSoon(4000);
         return;
       }
 
-      setStatus("Cross-referencing rosters across " + leagues.length + " league(s)…");
-      const ownership = await loadOwnershipAcrossLeagues(leagues, user.user_id);
+      setStatus("Fetching Week " + state.currentWeek + " matchup scores & yet to play counts…");
+      const ownership = await loadOwnershipAndMatchupsAcrossLeagues(leagues, user.user_id, state.currentWeek);
       state.ownership = ownership;
+
+      renderLeagues(leagues);
 
       setStatus("Fetching live news & updates from the last 48 hours…");
       await loadPlayerNews(ownership);
 
-      renderRosterStatusTab();
-      renderPlayerNewsTab();
+      renderCurrentView();
 
       setStatus("Done — synced " + state.ownership.size + " rostered player(s).");
       el.lastSynced.textContent = "Last synced " + new Date().toLocaleTimeString();
@@ -757,12 +1009,24 @@
     }
   }
 
+  // Load initial global headlines on page start even before login
+  loadPlayerNews(null).then(() => {
+    if (state.view === "allHeadlines") {
+      renderAllHeadlinesTab();
+    }
+  });
+
   el.loginBtn.addEventListener("click", handleLogin);
   el.usernameInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleLogin();
   });
 
   el.wireViewSelect.addEventListener("change", (e) => switchView(e.target.value));
+
+  el.searchInput.addEventListener("input", (e) => {
+    state.searchQuery = e.target.value.trim();
+    renderCurrentView();
+  });
 })();
 </script>
 
