@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sleeper Wire · Multi-League Impact Dashboard</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#080B0F',
+          panel: '#11161C',
+          panel2: '#171E26',
+          line: '#232C36',
+          lime: '#C6FF3D',
+          amber: '#FFB020',
+          sky: '#5B93FF',
+          rose: '#FF6B9D',
+          muted: '#7C8896',
+        },
+        fontFamily: {
+          display: ['"Big Shoulders Display"', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+        },
+        boxShadow: {
+          glow: '0 0 0 1px rgba(198,255,61,0.15), 0 8px 24px -8px rgba(198,255,61,0.12)',
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  html, body { background-color: #080B0F; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #0A0F14; }
+  ::-webkit-scrollbar-thumb { background: #232C36; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2E3944; }
+
+  .ticker-track {
+    display: inline-flex;
+    white-space: nowrap;
+    animation: ticker 22s linear infinite;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+  }
+
+  .pulse-dot {
+    box-shadow: 0 0 0 0 rgba(198,255,61,0.7);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(198,255,61,0.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(198,255,61,0); }
+    100% { box-shadow: 0 0 0 0 rgba(198,255,61,0); }
+  }
+
+  .card-enter {
+    animation: cardIn 0.35s ease-out both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-exit {
+    animation: cardOut 0.25s ease-in forwards;
+  }
+  @keyframes cardOut {
+    to { opacity: 0; transform: scale(0.95); }
+  }
+
+  input[type="text"]:focus, select:focus, button:focus-visible {
+    outline: 2px solid #C6FF3D;
+    outline-offset: 2px;
+  }
+
+  .spinner {
+    border: 2px solid #232C36;
+    border-top-color: #C6FF3D;
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+
+<body class="bg-ink text-slate-100 font-body min-h-screen">
+
+  <!-- Live ticker strip -->
+  <div class="bg-panel2 border-b border-line overflow-hidden py-1.5">
+    <div class="ticker-track text-[11px] tracking-wide text-muted font-medium">
+      <span class="mx-6">● LIVE BREAKING NEWS — LAST 48 HOURS ONLY</span>
+      <span class="mx-6">● ONLY SHOWING PLAYERS ON YOUR ROSTERS</span>
+      <span class="mx-6">● DEEP-LINK STRAIGHT TO YOUR ROSTER TO ACT</span>
+      <span class="mx-6">● LIVE BREAKING NEWS — LAST 48 HOURS ONLY</span>
+      <span class="mx-6">● ONLY SHOWING PLAYERS ON YOUR ROSTERS</span>
+      <span class="mx-6">● DEEP-LINK STRAIGHT TO YOUR ROSTER TO ACT</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="border-b border-line bg-gradient-to-b from-panel to-ink">
+    <div class="max-w-[1600px] mx-auto px-6 py-5 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-8">
+      <div class="flex-shrink-0">
+        <h1 class="font-display font-800 text-3xl lg:text-4xl leading-none tracking-tight text-white">
+          SLEEPER <span class="text-lime">WIRE</span>
+        </h1>
+        <p class="text-xs text-muted mt-1">Unified roster news & status hub across every league you play</p>
+      </div>
+
+      <div class="flex-1"></div>
+
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-col gap-1">
+          <label for="seasonSelect" class="text-[10px] uppercase tracking-wider text-muted">Season</label>
+          <select id="seasonSelect" class="bg-panel2 border border-line rounded-md px-3 py-2 text-sm text-slate-100 min-w-[100px]">
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="usernameInput" class="text-[10px] uppercase tracking-wider text-muted">Sleeper Username</label>
+          <input id="usernameInput" type="text" placeholder="e.g. jsmith_ff"
+            class="bg-panel2 border border-line rounded-md px-3 py-2 text-sm text-slate-100 placeholder:text-muted/60 min-w-[220px]" />
+        </div>
+
+        <button id="loginBtn"
+          class="bg-lime text-ink font-semibold text-sm px-5 py-2.5 rounded-md hover:brightness-95 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed">
+          Login
+        </button>
+      </div>
+    </div>
+
+    <!-- Status / pipeline bar -->
+    <div id="statusBar" class="hidden max-w-[1600px] mx-auto px-6 pb-4">
+      <div class="flex items-center gap-2 text-xs text-muted bg-panel2 border border-line rounded-md px-3 py-2">
+        <div id="statusSpinner" class="spinner"></div>
+        <span id="statusText">Working…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main workspace -->
+  <main class="max-w-[1600px] mx-auto px-6 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+      <!-- LEFT: My Leagues -->
+      <aside class="lg:col-span-1">
+        <div class="lg:sticky lg:top-6">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display font-700 text-xl tracking-tight text-white">My Leagues</h2>
+            <span id="leagueCount" class="text-[11px] text-muted bg-panel2 border border-line rounded-full px-2 py-0.5">0</span>
+          </div>
+
+          <div id="leaguesList" class="flex flex-col gap-2">
+            <div class="border border-dashed border-line rounded-lg p-5 text-center text-sm text-muted">
+              Log in with your Sleeper username to load your leagues.
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Main View Container -->
+      <section class="lg:col-span-3">
+        <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-lime pulse-dot flex-shrink-0"></span>
+            <select id="wireViewSelect"
+              class="font-display font-700 text-xl tracking-tight text-white bg-transparent border-none focus:outline-none cursor-pointer">
+              <option value="playerNews" class="bg-panel text-slate-100" selected>Player News & Updates</option>
+              <option value="rosterStatus" class="bg-panel text-slate-100">Roster Status & Injuries</option>
+            </select>
+          </div>
+          <span id="wireCount" class="text-[11px] text-muted bg-panel2 border border-line rounded-full px-2 py-0.5">0 updates</span>
+        </div>
+
+        <!-- Roster Status Grid -->
+        <div id="rosterStatusGrid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
+            Log in to view active injury status updates across your teams.
+          </div>
+        </div>
+
+        <!-- Player News Grid -->
+        <div id="playerNewsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
+            Log in to fetch live fantasy player news and updates from the last 48 hours for your rostered players.
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-line mt-10">
+    <div class="max-w-[1600px] mx-auto px-6 py-5 text-[11px] text-muted flex flex-wrap justify-between gap-2">
+      <span>Not affiliated with Sleeper. Data pulled live from public fantasy endpoints.</span>
+      <span id="lastSynced"></span>
+    </div>
+  </footer>
+
+<script>
+(function () {
+  "use strict";
+
+  const API_BASE = "https://api.sleeper.app/v1";
+  const PLAYERS_CACHE_KEY = "sleeper_wire_players_cache_v1";
+  const PLAYERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+  const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 Hours
+
+  const POSITION_COLORS = {
+    QB:  "text-sky border-sky/40 bg-sky/10",
+    RB:  "text-lime border-lime/40 bg-lime/10",
+    WR:  "text-amber border-amber/40 bg-amber/10",
+    TE:  "text-rose border-rose/40 bg-rose/10",
+    K:   "text-purple-300 border-purple-400/40 bg-purple-400/10",
+    DEF: "text-muted border-muted/40 bg-muted/10",
+  };
+
+  const FALLBACK_AVATAR =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">' +
+      '<rect width="56" height="56" rx="28" fill="#171E26"/>' +
+      '<circle cx="28" cy="22" r="10" fill="#232C36"/>' +
+      '<path d="M8 50c2-11 12-17 20-17s18 6 20 17" fill="#232C36"/>' +
+      '</svg>'
+    );
+
+  const state = {
+    playersDict: null,
+    userId: null,
+    leagues: [],
+    ownership: new Map(),             // player_id -> Map(league_id -> league_name)
+    clearedRosterPlayers: new Set(),  // player IDs cleared in Roster Status view
+    clearedNewsCards: new Set(),      // news index/keys cleared in Player News view
+    view: "playerNews",               // "playerNews" | "rosterStatus"
+    playerNewsList: [],
+  };
+
+  const el = {
+    loginBtn: document.getElementById("loginBtn"),
+    usernameInput: document.getElementById("usernameInput"),
+    seasonSelect: document.getElementById("seasonSelect"),
+    statusBar: document.getElementById("statusBar"),
+    statusText: document.getElementById("statusText"),
+    statusSpinner: document.getElementById("statusSpinner"),
+    leaguesList: document.getElementById("leaguesList"),
+    leagueCount: document.getElementById("leagueCount"),
+    wireViewSelect: document.getElementById("wireViewSelect"),
+    rosterStatusGrid: document.getElementById("rosterStatusGrid"),
+    playerNewsGrid: document.getElementById("playerNewsGrid"),
+    wireCount: document.getElementById("wireCount"),
+    lastSynced: document.getElementById("lastSynced"),
+  };
+
+  function setStatus(msg, isError) {
+    el.statusBar.classList.remove("hidden");
+    el.statusText.textContent = msg;
+    el.statusText.classList.toggle("text-rose", !!isError);
+    el.statusSpinner.classList.toggle("hidden", !!isError);
+  }
+
+  function hideStatusSoon(delay) {
+    setTimeout(() => el.statusBar.classList.add("hidden"), delay || 2500);
+  }
+
+  function setLoginBusy(busy) {
+    el.loginBtn.disabled = busy;
+    el.loginBtn.textContent = busy ? "Working…" : "Login";
+  }
+
+  function rosterDeepLink(leagueId) {
+    return "https://sleeper.com/leagues/" + leagueId + "/team";
+  }
+
+  function headshotUrl(playerId) {
+    return "https://sleepercdn.com/content/nfl/players/thumb/" + playerId + ".jpg";
+  }
+
+  async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Request failed (" + res.status + "): " + url);
+    return res.json();
+  }
+
+  function playerLabel(playerId) {
+    const p = state.playersDict ? state.playersDict[playerId] : null;
+    if (!p) {
+      return { name: "Player #" + playerId, position: "—", team: "FA", injuryStatus: "Healthy", newsUpdated: 0 };
+    }
+    const name = (p.first_name || "") + " " + (p.last_name || "") || p.full_name || "Unknown Player";
+    return {
+      name: name.trim(),
+      position: p.position || "—",
+      team: p.team || "FA",
+      injuryStatus: p.injury_status || p.status || "Healthy",
+      newsUpdated: p.news_updated || p.injury_start_date || 0,
+    };
+  }
+
+  function timeAgo(dateString) {
+    if (!dateString) return "Recently";
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    if (isNaN(seconds)) return "Recently";
+
+    if (seconds < 60) return "Just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  async function loadPlayersDict() {
+    try {
+      const cachedRaw = localStorage.getItem(PLAYERS_CACHE_KEY);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (cached.fetchedAt && Date.now() - cached.fetchedAt < PLAYERS_CACHE_TTL_MS && cached.data) {
+          state.playersDict = cached.data;
+          return;
+        }
+      }
+    } catch (e) { }
+
+    const data = await fetchJSON(API_BASE + "/players/nfl");
+    state.playersDict = data;
+    try {
+      localStorage.setItem(PLAYERS_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), data: data }));
+    } catch (e) { }
+  }
+
+  async function loadUser(username) {
+    const user = await fetchJSON(API_BASE + "/user/" + encodeURIComponent(username));
+    if (!user || !user.user_id) throw new Error("No Sleeper user found for that username.");
+    return user;
+  }
+
+  async function loadLeagues(userId, season) {
+    const leagues = await fetchJSON(API_BASE + "/user/" + userId + "/leagues/nfl/" + season);
+    return Array.isArray(leagues) ? leagues : [];
+  }
+
+  async function loadOwnershipAcrossLeagues(leagues, userId) {
+    const ownership = new Map();
+
+    await Promise.all(
+      leagues.map(async (league) => {
+        try {
+          const rosters = await fetchJSON(API_BASE + "/league/" + league.league_id + "/rosters");
+          const myRoster = (rosters || []).find((r) => {
+            if (r.owner_id === userId) return true;
+            if (Array.isArray(r.co_owners) && r.co_owners.includes(userId)) return true;
+            return false;
+          });
+
+          if (!myRoster || !Array.isArray(myRoster.players)) return;
+
+          myRoster.players.forEach((playerId) => {
+            if (!ownership.has(playerId)) ownership.set(playerId, new Map());
+            ownership.get(playerId).set(league.league_id, league.name || "Unnamed League");
+          });
+        } catch (e) {
+          console.warn("Failed to load rosters for league", league.league_id, e);
+        }
+      })
+    );
+
+    return ownership;
+  }
+
+  // Fetch live Player News cards (Strictly last 48 hrs)
+  async function loadPlayerNews(ownership) {
+    try {
+      const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50");
+      const data = await response.json();
+      const articles = data.articles || [];
+
+      const playerMap = new Map();
+      ownership.forEach((_val, pid) => {
+        const info = playerLabel(pid);
+        if (info.name) {
+          playerMap.set(info.name.toLowerCase(), { id: pid, info });
+        }
+      });
+
+      const now = Date.now();
+      const matchedNews = [];
+
+      articles.forEach((art, idx) => {
+        // Filter out news older than 48 hours
+        const pubTime = new Date(art.published).getTime();
+        if (isNaN(pubTime) || (now - pubTime) > NEWS_MAX_AGE_MS) {
+          return;
+        }
+
+        const textToSearch = ((art.headline || "") + " " + (art.description || "")).toLowerCase();
+        
+        playerMap.forEach((pData, playerName) => {
+          if (textToSearch.includes(playerName)) {
+            matchedNews.push({
+              cardId: "news-" + pData.id + "-" + idx,
+              playerId: pData.id,
+              playerInfo: pData.info,
+              title: art.headline,
+              summary: art.description || art.story || "No details provided.",
+              source: art.byline || "ESPN Fantasy",
+              published: art.published,
+              link: art.links?.web?.href || "#",
+              leagues: Array.from(ownership.get(pData.id).entries()).map(([id, name]) => ({
+                league_id: id,
+                name: name,
+              })),
+            });
+          }
+        });
+      });
+
+      state.playerNewsList = matchedNews;
+    } catch (e) {
+      console.warn("Could not load player news:", e);
+      state.playerNewsList = [];
+    }
+  }
+
+  // Handler for clearing a player card in Roster Status View
+  window.clearRosterPlayerCard = function(playerId) {
+    state.clearedRosterPlayers.add(playerId);
+    const cardEl = document.getElementById("roster-card-" + playerId);
+    if (cardEl) {
+      cardEl.classList.add("card-exit");
+      setTimeout(() => {
+        cardEl.remove();
+        renderRosterStatusTab();
+      }, 250);
+    }
+  };
+
+  // Handler for clearing a card in Player News View
+  window.clearNewsCard = function(cardId) {
+    state.clearedNewsCards.add(cardId);
+    const cardEl = document.getElementById(cardId);
+    if (cardEl) {
+      cardEl.classList.add("card-exit");
+      setTimeout(() => {
+        cardEl.remove();
+        renderPlayerNewsTab();
+      }, 250);
+    }
+  };
+
+  // ---------------------------------------------------------------------
+  // Render: Roster Status View
+  // ---------------------------------------------------------------------
+  function renderRosterStatusTab() {
+    const ownedPlayerIds = Array.from(state.ownership.keys()).filter((pid) => !state.clearedRosterPlayers.has(pid));
+
+    const injuredPlayers = ownedPlayerIds
+      .map((pid) => {
+        const info = playerLabel(pid);
+        const statusKey = (info.injuryStatus || "ACTIVE").toUpperCase();
+        return {
+          id: pid,
+          info: info,
+          statusKey: statusKey,
+          leagues: Array.from(state.ownership.get(pid).entries()).map(([id, name]) => ({
+            league_id: id,
+            name: name,
+          })),
+        };
+      })
+      .filter((item) => item.statusKey !== "ACTIVE" && item.statusKey !== "HEALTHY" && item.statusKey !== "—");
+
+    state.lastRosterStatusCount = injuredPlayers.length + (injuredPlayers.length === 1 ? " update" : " updates");
+    if (state.view === "rosterStatus") el.wireCount.textContent = state.lastRosterStatusCount;
+
+    if (!injuredPlayers.length) {
+      el.rosterStatusGrid.innerHTML =
+        '<div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">' +
+        "No active injury designations or status updates on your rosters." +
+        "</div>";
+      return;
+    }
+
+    injuredPlayers.sort((a, b) => (b.info.newsUpdated || 0) - (a.info.newsUpdated || 0));
+
+    el.rosterStatusGrid.innerHTML = injuredPlayers
+      .map((item, idx) => {
+        const info = item.info;
+        const posClasses = POSITION_COLORS[info.position] || POSITION_COLORS.DEF;
+
+        let badgeClass = "bg-rose/20 border-rose/50 text-rose font-bold";
+        if (item.statusKey === "QUESTIONABLE" || item.statusKey === "Q") {
+          badgeClass = "bg-yellow-500/20 border-yellow-500/50 text-yellow-300 font-medium";
+        } else if (item.statusKey === "DOUBTFUL" || item.statusKey === "D") {
+          badgeClass = "bg-amber/20 border-amber/50 text-amber font-bold";
+        }
+
+        const leagueTags = item.leagues
+          .map(
+            (lg) => `
+            <a href="${rosterDeepLink(lg.league_id)}" target="_blank" rel="noopener noreferrer"
+               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
+              ${escapeHtml(lg.name)} ↗
+            </a>`
+          )
+          .join("");
+
+        return `
+        <article id="roster-card-${item.id}" class="bg-panel border border-line rounded-lg p-4 flex flex-col justify-between gap-3 hover:shadow-glow hover:border-lime/30 transition-all card-enter" style="animation-delay:${Math.min(idx * 20, 300)}ms">
+          <div class="flex items-center gap-3">
+            <img src="${headshotUrl(item.id)}" alt="${escapeHtml(info.name)}"
+                 class="w-14 h-14 rounded-full object-cover border-2 border-line bg-panel2 flex-shrink-0"
+                 onerror="this.onerror=null;this.src='${FALLBACK_AVATAR}';" />
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-slate-100 truncate cursor-help" title="${escapeHtml(info.name)}">${escapeHtml(info.name)}</p>
+              <div class="flex items-center gap-1.5 mt-1">
+                <span class="text-[10px] font-semibold uppercase tracking-wide border rounded px-1.5 py-0.5 ${posClasses}">${escapeHtml(info.position)}</span>
+                <span class="text-[11px] text-muted">${escapeHtml(info.team)}</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 text-right flex flex-col items-end gap-1.5">
+              <button onclick="clearRosterPlayerCard('${item.id}')"
+                class="text-[10px] uppercase font-semibold text-muted hover:text-rose border border-line hover:border-rose/40 rounded px-1.5 py-0.5 transition">
+                Clear
+              </button>
+              <span class="text-xs uppercase px-2 py-0.5 rounded border ${badgeClass}">
+                ${escapeHtml(info.injuryStatus)}
+              </span>
+            </div>
+          </div>
+
+          <div class="border-t border-line pt-3 mt-1">
+            <p class="text-[10px] uppercase tracking-wider text-muted mb-2">Rostered in</p>
+            <div class="flex flex-wrap gap-1.5">
+              ${leagueTags}
+            </div>
+          </div>
+        </article>`;
+      })
+      .join("");
+  }
+
+  // ---------------------------------------------------------------------
+  // Render: Player News View
+  // ---------------------------------------------------------------------
+  function renderPlayerNewsTab() {
+    const list = state.playerNewsList.filter((item) => !state.clearedNewsCards.has(item.cardId));
+    state.lastPlayerNewsCount = list.length + (list.length === 1 ? " update" : " updates");
+    if (state.view === "playerNews") el.wireCount.textContent = state.lastPlayerNewsCount;
+
+    if (!list.length) {
+      el.playerNewsGrid.innerHTML = `
+        <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
+          No breaking news found in the last 48 hours for your rostered players.
+        </div>`;
+      return;
+    }
+
+    el.playerNewsGrid.innerHTML = list
+      .map((item, idx) => {
+        const info = item.playerInfo;
+        const posClasses = POSITION_COLORS[info.position] || POSITION_COLORS.DEF;
+
+        const leagueTags = item.leagues
+          .map(
+            (lg) => `
+            <a href="${rosterDeepLink(lg.league_id)}" target="_blank" rel="noopener noreferrer"
+               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
+              ${escapeHtml(lg.name)} ↗
+            </a>`
+          )
+          .join("");
+
+        return `
+        <article id="${item.cardId}" class="bg-panel border border-line rounded-lg p-5 flex flex-col justify-between gap-4 hover:shadow-glow hover:border-lime/30 transition-all card-enter" style="animation-delay:${Math.min(idx * 30, 300)}ms">
+          <div>
+            <div class="flex items-center justify-between gap-3 border-b border-line pb-3 mb-3">
+              <div class="flex items-center gap-3">
+                <img src="${headshotUrl(item.playerId)}" alt="${escapeHtml(info.name)}"
+                     class="w-12 h-12 rounded-full object-cover border-2 border-line bg-panel2 flex-shrink-0"
+                     onerror="this.onerror=null;this.src='${FALLBACK_AVATAR}';" />
+                <div>
+                  <h3 class="font-semibold text-slate-100 text-base cursor-help" title="${escapeHtml(info.name)}">${escapeHtml(info.name)}</h3>
+                  <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class="text-[10px] font-semibold uppercase tracking-wide border rounded px-1.5 py-0.5 ${posClasses}">${escapeHtml(info.position)}</span>
+                    <span class="text-[11px] text-muted">${escapeHtml(info.team)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex flex-col items-end gap-1.5">
+                <button onclick="clearNewsCard('${item.cardId}')"
+                  class="text-[10px] uppercase font-semibold text-muted hover:text-rose border border-line hover:border-rose/40 rounded px-1.5 py-0.5 transition">
+                  Clear
+                </button>
+                <span class="text-[11px] text-muted whitespace-nowrap">${timeAgo(item.published)}</span>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="font-display font-800 text-lg leading-snug text-white mb-2">${escapeHtml(item.title)}</h4>
+              <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(item.summary)}</p>
+            </div>
+          </div>
+
+          <div class="space-y-3 border-t border-line pt-3 mt-2">
+            <div>
+              <p class="text-[10px] uppercase tracking-wider text-muted mb-1.5">Rostered in</p>
+              <div class="flex flex-wrap gap-1.5">
+                ${leagueTags}
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-muted pt-1">
+              <span>via ${escapeHtml(item.source)}</span>
+              <a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="text-lime hover:underline font-medium">Read Article ↗</a>
+            </div>
+          </div>
+        </article>`;
+      })
+      .join("");
+  }
+
+  function switchView(view) {
+    state.view = view;
+    el.rosterStatusGrid.classList.toggle("hidden", view !== "rosterStatus");
+    el.playerNewsGrid.classList.toggle("hidden", view !== "playerNews");
+
+    if (view === "rosterStatus") {
+      renderRosterStatusTab();
+    } else if (view === "playerNews") {
+      renderPlayerNewsTab();
+    }
+  }
+
+  function renderLeagues(leagues) {
+    el.leagueCount.textContent = String(leagues.length);
+    if (!leagues.length) {
+      el.leaguesList.innerHTML = '<div class="border border-dashed border-line rounded-lg p-5 text-center text-sm text-muted">No active leagues found.</div>';
+      return;
+    }
+    el.leaguesList.innerHTML = leagues
+      .map((league) => `
+        <div class="bg-panel border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2 card-enter">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-100 truncate">${escapeHtml(league.name || "Unnamed League")}</p>
+            <p class="text-[11px] text-muted">${escapeHtml(league.status || "")}</p>
+          </div>
+          <a href="${rosterDeepLink(league.league_id)}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap">Roster ↗</a>
+        </div>`)
+      .join("");
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = String(str == null ? "" : str);
+    return div.innerHTML;
+  }
+
+  async function handleLogin() {
+    const username = el.usernameInput.value.trim();
+    const season = el.seasonSelect.value;
+
+    if (!username) {
+      setStatus("Enter your Sleeper username first.", true);
+      hideStatusSoon(3000);
+      return;
+    }
+
+    setLoginBusy(true);
+    state.clearedRosterPlayers.clear();
+    state.clearedNewsCards.clear();
+    el.leaguesList.innerHTML = "";
+    el.rosterStatusGrid.innerHTML = "";
+    el.playerNewsGrid.innerHTML = "";
+
+    try {
+      setStatus("Loading NFL player dictionary…");
+      await loadPlayersDict();
+
+      setStatus("Looking up Sleeper user \"" + username + "\"…");
+      const user = await loadUser(username);
+      state.userId = user.user_id;
+
+      setStatus("Fetching leagues for " + season + "…");
+      const leagues = await loadLeagues(user.user_id, season);
+      state.leagues = leagues;
+      renderLeagues(leagues);
+
+      if (!leagues.length) {
+        setStatus("No leagues found for this username / season.", true);
+        hideStatusSoon(4000);
+        return;
+      }
+
+      setStatus("Cross-referencing rosters across " + leagues.length + " league(s)…");
+      const ownership = await loadOwnershipAcrossLeagues(leagues, user.user_id);
+      state.ownership = ownership;
+
+      setStatus("Fetching live news & updates from the last 48 hours…");
+      await loadPlayerNews(ownership);
+
+      renderRosterStatusTab();
+      renderPlayerNewsTab();
+
+      setStatus("Done — synced " + state.ownership.size + " rostered player(s).");
+      el.lastSynced.textContent = "Last synced " + new Date().toLocaleTimeString();
+      hideStatusSoon(3000);
+    } catch (err) {
+      console.error(err);
+      setStatus(err.message || "Something went wrong. Please try again.", true);
+      hideStatusSoon(5000);
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  el.loginBtn.addEventListener("click", handleLogin);
+  el.usernameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleLogin();
+  });
+
+  el.wireViewSelect.addEventListener("change", (e) => switchView(e.target.value));
+})();
+</script>
+
+</body>
+</html>
