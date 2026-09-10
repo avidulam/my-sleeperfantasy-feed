@@ -290,14 +290,32 @@
     el.loginBtn.textContent = busy ? "Working…" : "Login";
   }
 
-  // Deep-link generator supporting native app URI scheme for iOS/Android PWAs
-  function rosterDeepLink(leagueId) {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      return "sleeper://league/" + leagueId;
+  // Optimized iOS deep-linking function
+  window.openSleeperLeague = function(event, leagueId) {
+    event.preventDefault();
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    if (isIOS) {
+      // iOS specific deep link scheme requiring full path
+      const customScheme = "sleeper://leagues/" + leagueId + "/team";
+      const webFallback = "https://sleeper.com/leagues/" + leagueId + "/team";
+
+      window.location.href = customScheme;
+
+      // Fallback redirect if app doesn't navigate deep within 500ms
+      setTimeout(function() {
+        window.location.href = webFallback;
+      }, 500);
+    } else {
+      // Android / Desktop handling
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        window.location.href = "sleeper://leagues/" + leagueId;
+      } else {
+        window.open("https://sleeper.com/leagues/" + leagueId + "/team", "_blank");
+      }
     }
-    return "https://sleeper.com/leagues/" + leagueId + "/team";
-  }
+  };
 
   function headshotUrl(playerId) {
     return "https://sleepercdn.com/content/nfl/players/thumb/" + playerId + ".jpg";
@@ -398,7 +416,6 @@
     return ownership;
   }
 
-  // Fetch live Player News cards (Strictly last 48 hrs)
   async function loadPlayerNews(ownership) {
     try {
       const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50");
@@ -417,7 +434,6 @@
       const matchedNews = [];
 
       articles.forEach((art, idx) => {
-        // Filter out news older than 48 hours
         const pubTime = new Date(art.published).getTime();
         if (isNaN(pubTime) || (now - pubTime) > NEWS_MAX_AGE_MS) {
           return;
@@ -452,7 +468,6 @@
     }
   }
 
-  // Handler for clearing a player card in Roster Status View
   window.clearRosterPlayerCard = function(playerId) {
     state.clearedRosterPlayers.add(playerId);
     const cardEl = document.getElementById("roster-card-" + playerId);
@@ -465,7 +480,6 @@
     }
   };
 
-  // Handler for clearing a card in Player News View
   window.clearNewsCard = function(cardId) {
     state.clearedNewsCards.add(cardId);
     const cardEl = document.getElementById(cardId);
@@ -478,9 +492,6 @@
     }
   };
 
-  // ---------------------------------------------------------------------
-  // Render: Roster Status View
-  // ---------------------------------------------------------------------
   function renderRosterStatusTab() {
     const ownedPlayerIds = Array.from(state.ownership.keys()).filter((pid) => !state.clearedRosterPlayers.has(pid));
 
@@ -528,8 +539,8 @@
         const leagueTags = item.leagues
           .map(
             (lg) => `
-            <a href="${rosterDeepLink(lg.league_id)}" target="_blank" rel="noopener noreferrer"
-               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
+            <a href="#" onclick="openSleeperLeague(event, '${lg.league_id}')"
+               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap cursor-pointer">
               ${escapeHtml(lg.name)} ↗
             </a>`
           )
@@ -570,9 +581,6 @@
       .join("");
   }
 
-  // ---------------------------------------------------------------------
-  // Render: Player News View
-  // ---------------------------------------------------------------------
   function renderPlayerNewsTab() {
     const list = state.playerNewsList.filter((item) => !state.clearedNewsCards.has(item.cardId));
     state.lastPlayerNewsCount = list.length + (list.length === 1 ? " update" : " updates");
@@ -594,8 +602,8 @@
         const leagueTags = item.leagues
           .map(
             (lg) => `
-            <a href="${rosterDeepLink(lg.league_id)}" target="_blank" rel="noopener noreferrer"
-               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
+            <a href="#" onclick="openSleeperLeague(event, '${lg.league_id}')"
+               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap cursor-pointer">
               ${escapeHtml(lg.name)} ↗
             </a>`
           )
@@ -676,7 +684,7 @@
             <p class="text-sm font-medium text-slate-100 truncate">${escapeHtml(league.name || "Unnamed League")}</p>
             <p class="text-[11px] text-muted">${escapeHtml(league.status || "")}</p>
           </div>
-          <a href="${rosterDeepLink(league.league_id)}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap">Roster ↗</a>
+          <a href="#" onclick="openSleeperLeague(event, '${league.league_id}')" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap cursor-pointer">Roster ↗</a>
         </div>`)
       .join("");
   }
