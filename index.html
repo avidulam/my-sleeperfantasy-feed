@@ -290,7 +290,12 @@
     el.loginBtn.textContent = busy ? "Working…" : "Login";
   }
 
+  // Deep-link generator supporting native app URI scheme for iOS/Android PWAs
   function rosterDeepLink(leagueId) {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      return "sleeper://league/" + leagueId;
+    }
     return "https://sleeper.com/leagues/" + leagueId + "/team";
   }
 
