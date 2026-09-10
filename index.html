@@ -124,7 +124,7 @@
 
       <div class="flex-1"></div>
 
-      <!-- Login Controls (shown when logged out) -->
+      <!-- Login Controls -->
       <div id="loginFormControls" class="flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
           <label for="seasonSelect" class="text-[10px] uppercase tracking-wider text-muted">Season</label>
@@ -150,7 +150,7 @@
         </button>
       </div>
 
-      <!-- Logged-in User Profile Badge (shown when logged in) -->
+      <!-- Logged-in User Profile Badge -->
       <div id="userProfileBadge" class="hidden flex items-center gap-3 bg-panel2 border border-line rounded-lg px-4 py-2">
         <img id="userAvatarImg" src="" alt="Avatar" class="w-8 h-8 rounded-full border border-lime object-cover bg-panel" />
         <div class="flex flex-col">
@@ -200,7 +200,6 @@
       <section class="lg:col-span-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
           
-          <!-- View Dropdown Container -->
           <div class="flex items-center gap-3">
             <span class="w-2.5 h-2.5 rounded-full bg-lime pulse-dot flex-shrink-0"></span>
             
@@ -219,7 +218,6 @@
             </div>
           </div>
 
-          <!-- Search Bar & Count Badge -->
           <div class="flex items-center gap-3 w-full sm:w-auto">
             <div class="relative flex-1 sm:w-64">
               <input id="searchInput" type="text" placeholder="Search player, team, keyword..."
@@ -232,21 +230,18 @@
           </div>
         </div>
 
-        <!-- Roster Status Grid -->
         <div id="rosterStatusGrid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
             Log in to view active injury status updates across your teams.
           </div>
         </div>
 
-        <!-- Player News Grid -->
         <div id="playerNewsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
             Log in to fetch live fantasy player news and updates from the last 48 hours for your rostered players.
           </div>
         </div>
 
-        <!-- All Headlines Grid -->
         <div id="allHeadlinesGrid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
             Fetching ESPN Top Headlines...
@@ -272,7 +267,7 @@
   const API_BASE = "https://api.sleeper.app/v1";
   const PLAYERS_CACHE_KEY = "sleeper_wire_players_cache_v1";
   const PLAYERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-  const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 Hours
+  const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
   const POSITION_COLORS = {
     QB:  "text-sky border-sky/40 bg-sky/10",
@@ -295,15 +290,17 @@
 
   const state = {
     playersDict: null,
+    projectionsDict: null,
     userId: null,
     userObj: null,
     currentWeek: 1,
+    currentSeason: "2026",
     leagues: [],
-    ownership: new Map(),             // player_id -> Map(league_id -> league_name)
-    clearedRosterPlayers: new Set(),  // player IDs cleared in Roster Status view
-    clearedNewsCards: new Set(),      // news index/keys cleared in Player News view
-    clearedHeadlineCards: new Set(),  // news index/keys cleared in All Headlines view
-    view: "playerNews",               // "playerNews" | "allHeadlines" | "rosterStatus"
+    ownership: new Map(),
+    clearedRosterPlayers: new Set(),
+    clearedNewsCards: new Set(),
+    clearedHeadlineCards: new Set(),
+    view: "playerNews",
     searchQuery: "",
     playerNewsList: [],
     allHeadlinesList: [],
@@ -423,6 +420,25 @@
     } catch (e) { }
   }
 
+  async function loadProjections(season, week) {
+    try {
+      const url = `https://api.sleeper.app/v1/projections/nfl/regular/${season}/${week}`;
+      const projData = await fetchJSON(url);
+      
+      const map = {};
+      if (Array.isArray(projData)) {
+        projData.forEach((p) => {
+          if (p.player_id) map[p.player_id] = p;
+        });
+      } else if (projData && typeof projData === "object") {
+        Object.assign(map, projData);
+      }
+      state.projectionsDict = map;
+    } catch (e) {
+      state.projectionsDict = {};
+    }
+  }
+
   async function getNflState() {
     try {
       const nflState = await fetchJSON(API_BASE + "/state/nfl");
@@ -443,7 +459,6 @@
     return Array.isArray(leagues) ? leagues : [];
   }
 
-  // Count players yet to play based on starters/players list and points scored
   function countYetToPlay(matchup) {
     if (!matchup) return 0;
     const starters = matchup.starters || matchup.players || [];
@@ -451,13 +466,47 @@
     
     let yetToPlay = 0;
     starters.forEach((pid) => {
-      // If player has 0 points or no entry in points map, consider them yet to play
-      if (!pointsMap[pid] || pointsMap[pid] === 0) {
+      if (pointsMap[pid] === undefined || pointsMap[pid] === null) {
         yetToPlay++;
       }
     });
 
     return yetToPlay;
+  }
+
+  // Calculate live total projected score:
+  // Actual points scored by players who have played + Projected points for players who have yet to play
+  function computeTeamProjection(matchup) {
+    if (!matchup) return 0;
+
+    const starters = matchup.starters || [];
+    const actualPointsMap = matchup.players_points || {};
+    let totalLiveProj = 0;
+
+    starters.forEach((pid) => {
+      const actualPts = actualPointsMap[pid];
+      const hasPlayedOrPlaying = actualPts !== undefined && actualPts !== null && Number(actualPts) > 0;
+
+      if (hasPlayedOrPlaying) {
+        totalLiveProj += Number(actualPts) || 0;
+      } else {
+        const pObj = state.projectionsDict ? state.projectionsDict[pid] : null;
+        if (pObj && pObj.stats) {
+          const pts = pObj.stats.pts_half_ppr ?? pObj.stats.pts_ppr ?? pObj.stats.pts_std ?? 0;
+          totalLiveProj += Number(pts) || 0;
+        } else if (pObj) {
+          const pts = pObj.pts_half_ppr ?? pObj.pts_ppr ?? pObj.pts_std ?? 0;
+          totalLiveProj += Number(pts) || 0;
+        }
+      }
+    });
+
+    // Fallback: If no projections found for starters, use total matchup points
+    if (totalLiveProj === 0 && (matchup.points || 0) > 0) {
+      return matchup.points || 0;
+    }
+
+    return totalLiveProj;
   }
 
   async function loadOwnershipAndMatchupsAcrossLeagues(leagues, userId, week) {
@@ -488,7 +537,6 @@
             });
           }
 
-          // Build Matchup info
           const myMatchup = matchups.find(m => m.roster_id === myRoster.roster_id);
           if (myMatchup) {
             const oppMatchup = matchups.find(m => m.matchup_id === myMatchup.matchup_id && m.roster_id !== myRoster.roster_id);
@@ -496,11 +544,16 @@
             const oppUser = oppRoster ? userMap.get(oppRoster.owner_id) : null;
 
             const myPts = myMatchup.points || 0;
+            const myProj = computeTeamProjection(myMatchup);
+
             const oppPts = oppMatchup ? (oppMatchup.points || 0) : 0;
+            const oppProj = computeTeamProjection(oppMatchup);
 
             league.matchupData = {
               myPoints: myPts,
+              myProj: myProj,
               oppPoints: oppPts,
+              oppProj: oppProj,
               myYTP: countYetToPlay(myMatchup),
               oppYTP: countYetToPlay(oppMatchup),
               oppName: oppUser ? (oppUser.metadata?.team_name || oppUser.display_name) : (oppRoster ? "Team " + oppRoster.roster_id : "BYE"),
@@ -517,7 +570,6 @@
     return ownership;
   }
 
-  // Fetch live Player News & Headlines (Last 48 hrs)
   async function loadPlayerNews(ownership) {
     try {
       const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50");
@@ -586,7 +638,6 @@
     }
   }
 
-  // Clear Handlers
   window.clearRosterPlayerCard = function(playerId) {
     state.clearedRosterPlayers.add(playerId);
     const cardEl = document.getElementById("roster-card-" + playerId);
@@ -623,7 +674,6 @@
     }
   };
 
-  // Render: Roster Status View
   function renderRosterStatusTab() {
     const q = state.searchQuery.toLowerCase();
     const ownedPlayerIds = Array.from(state.ownership.keys()).filter((pid) => !state.clearedRosterPlayers.has(pid));
@@ -723,7 +773,6 @@
       .join("");
   }
 
-  // Render: Player News View
   function renderPlayerNewsTab() {
     const q = state.searchQuery.toLowerCase();
     let list = state.playerNewsList.filter((item) => !state.clearedNewsCards.has(item.cardId));
@@ -814,7 +863,6 @@
       .join("");
   }
 
-  // Render: All Player Headlines View
   function renderAllHeadlinesTab() {
     const q = state.searchQuery.toLowerCase();
     let list = state.allHeadlinesList.filter((item) => !state.clearedHeadlineCards.has(item.cardId));
@@ -899,7 +947,6 @@
     }
   }
 
-  // Render My Matchups / Leagues with Scores and Yet to Play Indicators
   function renderLeagues(leagues) {
     el.leagueCount.textContent = String(leagues.length);
     el.weekBadge.textContent = "Week " + state.currentWeek;
@@ -914,7 +961,9 @@
       .map((league) => {
         const m = league.matchupData || {
           myPoints: 0,
+          myProj: 0,
           oppPoints: 0,
+          oppProj: 0,
           myYTP: 0,
           oppYTP: 0,
           oppName: "Opponent"
@@ -926,13 +975,11 @@
         <a href="${rosterDeepLink(league.league_id)}" target="_blank" rel="noopener noreferrer" 
            class="block bg-panel border border-line rounded-lg p-3.5 hover:border-lime/40 hover:shadow-glow transition-all group card-enter">
           
-          <!-- League Title Bar -->
           <div class="flex items-center justify-between gap-2 pb-2 mb-2.5 border-b border-line/60">
             <span class="text-xs font-semibold text-slate-200 truncate group-hover:text-lime transition-colors">${escapeHtml(league.name || "Unnamed League")}</span>
             <span class="text-[10px] text-sky font-medium flex-shrink-0">Matchup ↗</span>
           </div>
 
-          <!-- Matchup Grid -->
           <div class="space-y-2.5">
             <!-- User Team Row -->
             <div class="flex items-center justify-between">
@@ -941,7 +988,10 @@
                 <span class="text-xs font-medium text-slate-100 truncate">You</span>
                 <span class="text-[10px] text-muted bg-panel2 border border-line rounded px-1.5 py-0.2 whitespace-nowrap">${m.myYTP} YTP</span>
               </div>
-              <span class="font-display font-800 text-base ${isWinning ? 'text-lime' : 'text-slate-300'}">${m.myPoints.toFixed(2)}</span>
+              <div class="flex items-baseline gap-1.5 text-right flex-shrink-0">
+                <span class="text-xs text-lime/90 font-medium" title="Live Total Projection (Actual + Remaining Projections)">Proj: ${m.myProj.toFixed(2)}</span>
+                <span class="font-display font-800 text-base ${isWinning ? 'text-lime' : 'text-slate-300'}">${m.myPoints.toFixed(2)}</span>
+              </div>
             </div>
 
             <!-- Opponent Team Row -->
@@ -951,7 +1001,10 @@
                 <span class="text-xs font-medium text-muted truncate">${escapeHtml(m.oppName)}</span>
                 <span class="text-[10px] text-muted bg-panel2 border border-line rounded px-1.5 py-0.2 whitespace-nowrap">${m.oppYTP} YTP</span>
               </div>
-              <span class="font-display font-800 text-base ${!isWinning ? 'text-rose' : 'text-muted'}">${m.oppPoints.toFixed(2)}</span>
+              <div class="flex items-baseline gap-1.5 text-right flex-shrink-0">
+                <span class="text-xs text-muted/80 font-normal" title="Live Total Projection (Actual + Remaining Projections)">Proj: ${m.oppProj.toFixed(2)}</span>
+                <span class="font-display font-800 text-base ${!isWinning ? 'text-rose' : 'text-muted'}">${m.oppPoints.toFixed(2)}</span>
+              </div>
             </div>
           </div>
 
@@ -1003,6 +1056,7 @@
   async function handleLogin() {
     const username = el.usernameInput.value.trim();
     const season = el.seasonSelect.value;
+    state.currentSeason = season;
 
     if (!username) {
       setStatus("Enter your Sleeper username first.", true);
@@ -1026,6 +1080,9 @@
       setStatus("Loading NFL player dictionary…");
       await loadPlayersDict();
 
+      setStatus("Fetching player projections for Week " + state.currentWeek + "…");
+      await loadProjections(season, state.currentWeek);
+
       setStatus("Looking up Sleeper user \"" + username + "\"…");
       const user = await loadUser(username);
       state.userId = user.user_id;
@@ -1042,13 +1099,11 @@
         return;
       }
 
-      setStatus("Fetching Week " + state.currentWeek + " matchup scores & yet to play counts…");
+      setStatus("Fetching Week " + state.currentWeek + " matchup scores & projections…");
       const ownership = await loadOwnershipAndMatchupsAcrossLeagues(leagues, user.user_id, state.currentWeek);
       state.ownership = ownership;
 
-      // Update Header to show profile badge instead of login prompt
       updateHeaderLoginState(true, user, season);
-
       renderLeagues(leagues);
 
       setStatus("Fetching live news & updates from the last 48 hours…");
@@ -1068,7 +1123,6 @@
     }
   }
 
-  // Load initial global headlines on page start even before login
   loadPlayerNews(null).then(() => {
     if (state.view === "allHeadlines") {
       renderAllHeadlinesTab();
