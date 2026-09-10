@@ -124,7 +124,8 @@
 
       <div class="flex-1"></div>
 
-      <div class="flex flex-wrap items-end gap-3">
+      <!-- Login Controls (shown when logged out) -->
+      <div id="loginFormControls" class="flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
           <label for="seasonSelect" class="text-[10px] uppercase tracking-wider text-muted">Season</label>
           <select id="seasonSelect" class="bg-panel2 border border-line rounded-md px-3 py-2 text-sm text-slate-100 min-w-[100px]">
@@ -148,6 +149,19 @@
           Login
         </button>
       </div>
+
+      <!-- Logged-in User Profile Badge (shown when logged in) -->
+      <div id="userProfileBadge" class="hidden flex items-center gap-3 bg-panel2 border border-line rounded-lg px-4 py-2">
+        <img id="userAvatarImg" src="" alt="Avatar" class="w-8 h-8 rounded-full border border-lime object-cover bg-panel" />
+        <div class="flex flex-col">
+          <span id="userDisplayName" class="text-sm font-semibold text-white"></span>
+          <span id="userSeasonTag" class="text-[10px] text-lime font-medium uppercase tracking-wider"></span>
+        </div>
+        <button id="logoutBtn" class="ml-2 text-xs text-muted hover:text-rose border border-line hover:border-rose/40 rounded px-2.5 py-1 transition">
+          Switch User
+        </button>
+      </div>
+
     </div>
 
     <!-- Status / pipeline bar -->
@@ -163,7 +177,7 @@
   <main class="max-w-[1600px] mx-auto px-6 py-6">
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-      <!-- LEFT: My Leagues -->
+      <!-- LEFT: My Matchups -->
       <aside class="lg:col-span-1">
         <div class="lg:sticky lg:top-6">
           <div class="flex items-center justify-between mb-3">
@@ -282,6 +296,7 @@
   const state = {
     playersDict: null,
     userId: null,
+    userObj: null,
     currentWeek: 1,
     leagues: [],
     ownership: new Map(),             // player_id -> Map(league_id -> league_name)
@@ -295,6 +310,12 @@
   };
 
   const el = {
+    loginFormControls: document.getElementById("loginFormControls"),
+    userProfileBadge: document.getElementById("userProfileBadge"),
+    userAvatarImg: document.getElementById("userAvatarImg"),
+    userDisplayName: document.getElementById("userDisplayName"),
+    userSeasonTag: document.getElementById("userSeasonTag"),
+    logoutBtn: document.getElementById("logoutBtn"),
     loginBtn: document.getElementById("loginBtn"),
     usernameInput: document.getElementById("usernameInput"),
     seasonSelect: document.getElementById("seasonSelect"),
@@ -945,6 +966,40 @@
     return div.innerHTML;
   }
 
+  function updateHeaderLoginState(isLoggedIn, user, season) {
+    if (isLoggedIn && user) {
+      el.loginFormControls.classList.add("hidden");
+      el.userProfileBadge.classList.remove("hidden");
+      el.userDisplayName.textContent = user.display_name || user.username;
+      el.userSeasonTag.textContent = season + " Season";
+      el.userAvatarImg.src = avatarUrl(user.avatar);
+    } else {
+      el.userProfileBadge.classList.add("hidden");
+      el.loginFormControls.classList.remove("hidden");
+    }
+  }
+
+  function handleLogout() {
+    state.userId = null;
+    state.userObj = null;
+    state.ownership = new Map();
+    state.leagues = [];
+    state.clearedRosterPlayers.clear();
+    state.clearedNewsCards.clear();
+    state.clearedHeadlineCards.clear();
+
+    updateHeaderLoginState(false);
+
+    el.leagueCount.textContent = "0";
+    el.weekBadge.classList.add("hidden");
+    el.leaguesList.innerHTML = '<div class="border border-dashed border-line rounded-lg p-5 text-center text-sm text-muted">Log in with your Sleeper username to load your matchup scores.</div>';
+
+    el.rosterStatusGrid.innerHTML = '<div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">Log in to view active injury status updates across your teams.</div>';
+    el.playerNewsGrid.innerHTML = '<div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">Log in to fetch live fantasy player news and updates from the last 48 hours for your rostered players.</div>';
+
+    loadPlayerNews(null).then(() => renderCurrentView());
+  }
+
   async function handleLogin() {
     const username = el.usernameInput.value.trim();
     const season = el.seasonSelect.value;
@@ -974,6 +1029,7 @@
       setStatus("Looking up Sleeper user \"" + username + "\"…");
       const user = await loadUser(username);
       state.userId = user.user_id;
+      state.userObj = user;
 
       setStatus("Fetching leagues for " + season + "…");
       const leagues = await loadLeagues(user.user_id, season);
@@ -989,6 +1045,9 @@
       setStatus("Fetching Week " + state.currentWeek + " matchup scores & yet to play counts…");
       const ownership = await loadOwnershipAndMatchupsAcrossLeagues(leagues, user.user_id, state.currentWeek);
       state.ownership = ownership;
+
+      // Update Header to show profile badge instead of login prompt
+      updateHeaderLoginState(true, user, season);
 
       renderLeagues(leagues);
 
@@ -1017,6 +1076,7 @@
   });
 
   el.loginBtn.addEventListener("click", handleLogin);
+  el.logoutBtn.addEventListener("click", handleLogout);
   el.usernameInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleLogin();
   });
