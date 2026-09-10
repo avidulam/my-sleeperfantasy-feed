@@ -181,18 +181,30 @@
 
       <!-- RIGHT: Main View Container -->
       <section class="lg:col-span-3">
-        <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-lime pulse-dot flex-shrink-0"></span>
-            <select id="wireViewSelect"
-              class="font-display font-700 text-xl tracking-tight text-white bg-transparent border-none focus:outline-none cursor-pointer">
-              <option value="playerNews" class="bg-panel text-slate-100" selected>Player News & Updates</option>
-              <option value="rosterStatus" class="bg-panel text-slate-100">Roster Status & Injuries</option>
-            </select>
+        <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          
+          <!-- Styled Dropdown Container -->
+          <div class="flex items-center gap-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-lime pulse-dot flex-shrink-0"></span>
+            
+            <div class="relative inline-flex items-center">
+              <select id="wireViewSelect"
+                class="appearance-none bg-panel2 border-2 border-line hover:border-lime/50 focus:border-lime rounded-lg pl-4 pr-10 py-2 font-display font-700 text-xl lg:text-2xl tracking-tight text-white cursor-pointer transition shadow-sm">
+                <option value="playerNews" class="bg-panel text-slate-100 py-1" selected>Player News & Updates</option>
+                <option value="rosterStatus" class="bg-panel text-slate-100 py-1">Roster Status & Injuries</option>
+              </select>
+              <!-- Explicit Dropdown Arrow Icon -->
+              <div class="pointer-events-none absolute right-3 flex items-center text-lime">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+            </div>
           </div>
-          <span id="wireCount" class="text-[11px] text-muted bg-panel2 border border-line rounded-full px-2 py-0.5">0 updates</span>
-        </div>
 
+          <span id="wireCount" class="text-[11px] font-medium text-muted bg-panel2 border border-line rounded-full px-3 py-1">0 updates</span>
+        </div>
+        
         <!-- Roster Status Grid -->
         <div id="rosterStatusGrid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <div class="col-span-full border border-dashed border-line rounded-lg p-10 text-center text-sm text-muted">
