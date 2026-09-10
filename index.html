@@ -290,32 +290,10 @@
     el.loginBtn.textContent = busy ? "Working…" : "Login";
   }
 
-  // Optimized iOS deep-linking function
-  window.openSleeperLeague = function(event, leagueId) {
-    event.preventDefault();
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    
-    if (isIOS) {
-      // iOS specific deep link scheme requiring full path
-      const customScheme = "sleeper://leagues/" + leagueId + "/team";
-      const webFallback = "https://sleeper.com/leagues/" + leagueId + "/team";
-
-      window.location.href = customScheme;
-
-      // Fallback redirect if app doesn't navigate deep within 500ms
-      setTimeout(function() {
-        window.location.href = webFallback;
-      }, 500);
-    } else {
-      // Android / Desktop handling
-      const isAndroid = /Android/i.test(navigator.userAgent);
-      if (isAndroid) {
-        window.location.href = "sleeper://leagues/" + leagueId;
-      } else {
-        window.open("https://sleeper.com/leagues/" + leagueId + "/team", "_blank");
-      }
-    }
-  };
+  // Generate universal link that opens iOS/Android Universal Links directly without confirmation prompts
+  function sleeperRosterUrl(leagueId) {
+    return "https://sleeper.app/i/leagues/" + leagueId;
+  }
 
   function headshotUrl(playerId) {
     return "https://sleepercdn.com/content/nfl/players/thumb/" + playerId + ".jpg";
@@ -539,7 +517,7 @@
         const leagueTags = item.leagues
           .map(
             (lg) => `
-            <a href="#" onclick="openSleeperLeague(event, '${lg.league_id}')"
+            <a href="${sleeperRosterUrl(lg.league_id)}" target="_top" rel="opener"
                class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap cursor-pointer">
               ${escapeHtml(lg.name)} ↗
             </a>`
@@ -602,7 +580,7 @@
         const leagueTags = item.leagues
           .map(
             (lg) => `
-            <a href="#" onclick="openSleeperLeague(event, '${lg.league_id}')"
+            <a href="${sleeperRosterUrl(lg.league_id)}" target="_top" rel="opener"
                class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap cursor-pointer">
               ${escapeHtml(lg.name)} ↗
             </a>`
@@ -684,7 +662,7 @@
             <p class="text-sm font-medium text-slate-100 truncate">${escapeHtml(league.name || "Unnamed League")}</p>
             <p class="text-[11px] text-muted">${escapeHtml(league.status || "")}</p>
           </div>
-          <a href="#" onclick="openSleeperLeague(event, '${league.league_id}')" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap cursor-pointer">Roster ↗</a>
+          <a href="${sleeperRosterUrl(league.league_id)}" target="_top" rel="opener" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap cursor-pointer">Roster ↗</a>
         </div>`)
       .join("");
   }
