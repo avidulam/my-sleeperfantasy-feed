@@ -541,8 +541,8 @@
         const leagueTags = item.leagues
           .map(
             (lg) => `
-            <a href="${rosterDeepLink(lg.league_id)}"
-               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
+            <a href="${rosterDeepLink(lg.league_id)}" target="_blank" rel="noopener noreferrer"
+               class="js-sleeper-link text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
               ${escapeHtml(lg.name)} ↗
             </a>`
           )
@@ -607,8 +607,8 @@
         const leagueTags = item.leagues
           .map(
             (lg) => `
-            <a href="${rosterDeepLink(lg.league_id)}"
-               class="text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
+            <a href="${rosterDeepLink(lg.league_id)}" target="_blank" rel="noopener noreferrer"
+               class="js-sleeper-link text-[11px] font-medium border border-sky/40 text-sky rounded-full px-2.5 py-1 hover:bg-sky hover:text-ink transition whitespace-nowrap">
               ${escapeHtml(lg.name)} ↗
             </a>`
           )
@@ -689,7 +689,7 @@
             <p class="text-sm font-medium text-slate-100 truncate">${escapeHtml(league.name || "Unnamed League")}</p>
             <p class="text-[11px] text-muted">${escapeHtml(league.status || "")}</p>
           </div>
-          <a href="${rosterDeepLink(league.league_id)}" class="text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap">Roster ↗</a>
+          <a href="${rosterDeepLink(league.league_id)}" target="_blank" rel="noopener noreferrer" class="js-sleeper-link text-xs font-medium text-sky hover:text-lime transition whitespace-nowrap">Roster ↗</a>
         </div>`)
       .join("");
   }
@@ -764,6 +764,22 @@
   });
 
   el.wireViewSelect.addEventListener("change", (e) => switchView(e.target.value));
+
+  // On laptop/desktop, force these Sleeper deep links to always open in a
+  // fresh tab (never replacing this dashboard tab) — mobile is left exactly
+  // as-is, since target="_blank" already drives what happens there via
+  // iOS's own app hand-off behavior.
+  function isMobileDevice() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  }
+
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest(".js-sleeper-link");
+    if (!link || isMobileDevice()) return;
+
+    e.preventDefault();
+    window.open(link.href, "_blank", "noopener,noreferrer");
+  });
 })();
 </script>
 
